@@ -1,0 +1,65 @@
+#!/bin/zsh
+# Speak text from stdin with Kokoro, a local neural TTS — fully offline.
+# Used by the Ctrl+Option hotkey and the "Speak Selection" macOS Quick
+# Action; also works as a pipe:
+#   echo "hello" | speak-selection
+# Invoking while speech is playing stops the current speech first.
+set -u
+
+TEXT=$(cat)
+[[ -z "${TEXT// /}" ]] && exit 0
+
+# Fixed path (not TMPDIR): Hammerspoon must resolve the same directory to
+# send pause/rewind commands here.
+CACHE_DIR="$HOME/.cache/speak-selection"
+mkdir -p "$CACHE_DIR"
+PIDFILE="$CACHE_DIR/speaker.pid"
+
+# Stop any in-progress speech (previous script instance + its afplay).
+if [[ -f "$PIDFILE" ]]; then
+  OLD=$(cat "$PIDFILE" 2>/dev/null)
+  [[ -n "$OLD" && "$OLD" != "$$" ]] && kill "$OLD" 2>/dev/null
+fi
+pkill -f "afplay $CACHE_DIR" 2>/dev/null
+echo $$ > "$PIDFILE"
+
+export KOKORO_VOICE=${KOKORO_VOICE:-$(cat "$HOME/.config/speak-selection/voice" 2>/dev/null || echo af_heart)}
+export KOKORO_SPEED=${KOKORO_SPEED:-$(cat "$HOME/.config/speak-selection/speed" 2>/dev/null || echo 1.2)}
+HS=/opt/homebrew/bin/hs
+CMD_FILE="$CACHE_DIR/cmd"
+rm -f "$CMD_FILE"
+# Hide the caption overlay and remove segment files however this script
+# ends (done, killed, error).
+trap '"$HS" -c "captionHide()" </dev/null >/dev/null 2>&1; rm -f "$CACHE_DIR"/kokoro-* "$CMD_FILE"' EXIT TERM INT
+
+# Index-based playback over the streamed segments so Hammerspoon can steer:
+# it writes "back"/"fwd" to $CMD_FILE and kills the current afplay; the
+# loop then replays the previous sentence or skips to the next one.
+exec {kfd}< <("$HOME/.local/bin/kokoro-stream" "$CACHE_DIR" <<< "$TEXT" 2>/dev/null)
+typeset -a WAVS TXTS
+eof=0
+i=1
+while :; do
+  while (( eof == 0 && ${#WAVS} < i )); do
+    if IFS=$'\t' read -r -u $kfd wav txt; then
+      [[ -f "$wav" && "$wav" == *.wav ]] && { WAVS+=("$wav"); TXTS+=("$txt"); }
+    else
+      eof=1
+    fi
+  done
+  (( i > ${#WAVS} )) && break
+  (( i < 1 )) && i=1
+  [[ -f "${TXTS[i]}" ]] && "$HS" -c "captionShow('${TXTS[i]}')" </dev/null >/dev/null 2>&1
+  afplay "${WAVS[i]}"
+  if [[ -f "$CMD_FILE" ]]; then
+    c=$(<"$CMD_FILE")
+    rm -f "$CMD_FILE"
+    case "$c" in
+      back) (( i-- )) ;;
+      *) (( i++ )) ;;
+    esac
+  else
+    (( i++ ))
+  fi
+done
+rm -f "$PIDFILE"

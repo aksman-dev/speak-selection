@@ -1,0 +1,37 @@
+#!/Users/amaniyar/.local/venvs/kokoro/bin/python
+"""Read text on stdin, synthesize with Kokoro (local), emit wav paths on stdout.
+
+Streams one wav per sentence segment so playback can start before the whole
+text is synthesized. Used by speak-selection when the engine is 'kokoro'.
+"""
+import os
+import sys
+import uuid
+
+import soundfile as sf
+from kokoro import KPipeline
+
+def main() -> None:
+    text = sys.stdin.read().strip()
+    if not text:
+        return
+    outdir = sys.argv[1] if len(sys.argv) > 1 else "/tmp"
+    voice = os.environ.get("KOKORO_VOICE", "af_heart")
+    speed = float(os.environ.get("KOKORO_SPEED", "1.0"))
+    pipeline = KPipeline(lang_code="a", repo_id="hexgrad/Kokoro-82M")
+    run = uuid.uuid4().hex[:8]
+    # Split on sentence boundaries as well as newlines (Kokoro's default is
+    # newlines only, which turns a whole paragraph into one segment).
+    segments = pipeline(
+        text, voice=voice, speed=speed, split_pattern=r"(?<=[.!?])\s+|\n+"
+    )
+    for i, (graphemes, _, audio) in enumerate(segments):
+        base = os.path.join(outdir, f"kokoro-{run}-{i}")
+        sf.write(base + ".wav", audio, 24000)
+        with open(base + ".txt", "w") as fh:
+            fh.write(graphemes)
+        # One segment per line: "<wav path>\t<sentence text file path>"
+        print(f"{base}.wav\t{base}.txt", flush=True)
+
+if __name__ == "__main__":
+    main()

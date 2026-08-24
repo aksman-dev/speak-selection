@@ -1,0 +1,16 @@
+#!/bin/zsh
+# Set the speaking speed for the speak-selection voice (1.0 = natural).
+# Usage: speak-speed [number]   e.g. speak-speed 1.15
+# With no argument, prints the current speed.
+CFG="$HOME/.config/speak-selection/speed"
+if [[ -z "${1:-}" ]]; then
+  echo "current speed: $(cat "$CFG" 2>/dev/null || echo '1.2 (default)')"
+  exit 0
+fi
+if ! [[ "$1" =~ '^[0-9]+(\.[0-9]+)?$' ]] || (( $1 < 0.5 || $1 > 2.5 )); then
+  echo "usage: speak-speed <0.5..2.5>" >&2
+  exit 1
+fi
+mkdir -p "${CFG:h}"
+echo "$1" > "$CFG"
+echo "Speed set to $1." | "$HOME/.local/bin/speak-selection" 2>/dev/null

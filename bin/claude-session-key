@@ -1,0 +1,21 @@
+#!/bin/zsh
+# Print a stable key for the enclosing Claude Code session. Walks up the
+# process tree to the `claude` CLI process and extracts its --session-id;
+# falls back to the claude PID if no session id is on the command line.
+# Works from the Bash tool and from hooks — both descend from claude.
+pid=$$
+while (( pid > 1 )); do
+  cmd=$(ps -o command= -p "$pid" 2>/dev/null)
+  first=${cmd%% *}
+  if [[ "$first" == "claude" || "$first" == */claude ]]; then
+    if [[ "$cmd" =~ '--session-id[ =]([0-9a-fA-F-]{36})' ]]; then
+      print -r -- "${match[1]}"
+    else
+      print -r -- "$pid"
+    fi
+    exit 0
+  fi
+  pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+  [[ -n "$pid" ]] || break
+done
+exit 1

@@ -1,0 +1,107 @@
+# speak-selection
+
+## Agent quick install
+
+Paste this into your coding agent (Claude Code, Cursor, etc.) to set everything up:
+
+> Clone `git@github.com:aksman-dev/speak-selection.git` and install it on this
+> Mac by following its README exactly. Concretely: (1) `brew install hammerspoon
+> python@3.12 portaudio jq` — skip anything already installed. (2) Create the
+> Kokoro venv at `~/.local/venvs/kokoro` with python3.12 and
+> `pip install kokoro soundfile`. (3) Copy everything in `bin/` to
+> `~/.local/bin/` and `chmod +x` them; confirm `~/.local/bin` is on PATH.
+> (4) Install `hammerspoon/init.lua` to `~/.hammerspoon/init.lua` — if one
+> already exists, merge rather than overwrite, and keep every variable that the
+> file marks as intentionally global exactly as-is (a local eventtap gets
+> garbage-collected and the hotkey dies). (5) Copy
+> `macos/Speak Selection.workflow` to `~/Library/Services/` and run
+> `/System/Library/CoreServices/pbs -update`. (6) Optional Claude Code
+> narration: copy `claude/commands/narrate.md` to `~/.claude/commands/` and
+> merge the Stop hook from the README's install section into
+> `~/.claude/settings.json` without clobbering existing hooks. (7) Launch
+> Hammerspoon with `open -a Hammerspoon`, then tell me to grant it
+> Accessibility permission — you cannot do that step. (8) Verify end-to-end:
+> `echo "install test one. install test two." | ~/.local/bin/speak-selection`
+> must play audio (first run downloads the ~330MB Kokoro model) and show a
+> caption overlay, and a second run must also work. Then tell me the hotkeys
+> from the README table.
+
+Select text anywhere on macOS, tap **Ctrl+Option**, and hear it read aloud by a
+local neural voice (Kokoro-82M) — with a live caption overlay, pause/skip
+transport controls, and optional per-session narration of Claude Code
+responses. Everything runs on-device; no text ever leaves the machine.
+
+## Hotkeys (global, via Hammerspoon)
+
+| Keys | Action |
+|---|---|
+| Ctrl+Option (tap) | speak the selected text / stop |
+| Ctrl+Option+Space | pause / resume |
+| Ctrl+Option+Left / Right | previous / next sentence |
+| Ctrl+Option+1 / 2 / 3 | voice: Onyx / Michael / Fenrir |
+| Ctrl+Option+`-` / `=` | slower / faster |
+
+A dark caption bar at the bottom of the screen shows the sentence currently
+being spoken.
+
+## Components
+
+- `bin/speak-selection` — core pipeline: reads text on stdin, synthesizes with
+  Kokoro sentence-by-sentence, plays via `afplay`, drives the caption overlay,
+  and supports pause/skip via a command file.
+- `bin/kokoro-stream` — Python: text in, one wav + txt per sentence out
+  (streamed, so playback starts before synthesis finishes).
+- `bin/speak-speed` — set/show speaking speed from the terminal.
+- `hammerspoon/init.lua` — hotkeys, caption overlay, transport controls.
+- `macos/Speak Selection.workflow` — right-click → Services → Speak Selection
+  fallback for apps that support macOS Services.
+- Claude Code narration (optional):
+  - `bin/claude-speak-hook` — Stop hook: speaks each finished response when
+    narration is enabled for that session.
+  - `bin/narrate-session`, `bin/claude-session-key` — per-session toggle,
+    keyed by the session UUID from the `claude` process command line.
+  - `claude/commands/narrate.md` — the `/narrate on|off|status` slash command.
+
+## Install
+
+1. Prereqs: Homebrew, `brew install hammerspoon python@3.12 portaudio jq`.
+2. Kokoro venv:
+   ```sh
+   /opt/homebrew/opt/python@3.12/bin/python3.12 -m venv ~/.local/venvs/kokoro
+   ~/.local/venvs/kokoro/bin/pip install kokoro soundfile
+   ```
+   (First speech run downloads the ~330MB model from Hugging Face.)
+3. Scripts: copy or symlink `bin/*` into `~/.local/bin` (must be on PATH).
+4. Hammerspoon: copy `hammerspoon/init.lua` to `~/.hammerspoon/init.lua`
+   (or merge if you already have config), launch Hammerspoon, grant
+   Accessibility permission. `hs.ipc` must be installed
+   (`hs.ipc.cliInstall("/opt/homebrew")` is in the config) — the scripts talk
+   to Hammerspoon through `/opt/homebrew/bin/hs`.
+5. Services menu (optional): copy `macos/Speak Selection.workflow` to
+   `~/Library/Services/`.
+6. Claude Code narration (optional): copy `claude/commands/narrate.md` to
+   `~/.claude/commands/`, and add a Stop hook to `~/.claude/settings.json`:
+   ```json
+   "Stop": [{ "hooks": [{ "type": "command", "command": "~/.local/bin/claude-speak-hook", "timeout": 10 }] }]
+   ```
+
+## Configuration
+
+Plain files under `~/.config/speak-selection/`, re-read on every run:
+
+| File | Meaning | Default |
+|---|---|---|
+| `voice` | Kokoro voice id (`am_onyx`, `am_michael`, …) | `af_heart` |
+| `speed` | 0.5–2.5, 1.0 = natural | 1.2 |
+
+## Notes and gotchas (hard-won)
+
+- The Hammerspoon eventtap **must** live in a global variable — a `local`
+  eventtap is garbage-collected and the hotkey silently dies minutes later.
+- The `hs` CLI consumes stdin: every `hs -c` call inside a `while read` loop
+  needs `</dev/null` or it eats the loop's remaining input.
+- Kokoro splits on newlines by default; the sentence-level captions rely on
+  `split_pattern=r"(?<=[.!?])\s+|\n+"`.
+- Pause is `SIGSTOP`/`SIGCONT` on everything matching `speak-selection`;
+  a stopped process ignores `SIGTERM` until continued, so stop paths send
+  `-CONT` first.

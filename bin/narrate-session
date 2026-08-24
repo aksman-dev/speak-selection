@@ -1,0 +1,22 @@
+#!/bin/zsh
+# Toggle full spoken narration for the current Claude Code session only.
+# Usage: narrate-session [on|off|status]
+set -u
+FLAG_DIR="$HOME/.config/speak-selection/narrate-sessions"
+mkdir -p "$FLAG_DIR"
+
+# Prune flags for sessions with no running claude process.
+for f in "$FLAG_DIR"/*(N); do
+  pgrep -f "${f:t}" >/dev/null 2>&1 || rm -f "$f"
+done
+
+key=$("$HOME/.local/bin/claude-session-key") || { echo "not inside a Claude Code session"; exit 1; }
+case "${1:-status}" in
+  on) touch "$FLAG_DIR/$key"; echo "narration ON for this session" ;;
+  off)
+    rm -f "$FLAG_DIR/$key"
+    pkill -f 'speak-selection' 2>/dev/null
+    echo "narration OFF for this session" ;;
+  status) [[ -f "$FLAG_DIR/$key" ]] && echo "narration ON" || echo "narration OFF" ;;
+  *) echo "usage: narrate-session [on|off|status]" >&2; exit 1 ;;
+esac
