@@ -4,30 +4,51 @@
 
 ## Agent quick install
 
-Paste this into your coding agent (Claude Code, Cursor, etc.) to set everything up:
+Copy the prompt below into your coding agent (Codex, Claude Code, Cursor, etc.).
+Use the **copy button** in the top-right corner of the block to grab it all.
 
-> Clone `https://github.com/aksman-dev/hearmark.git` and install it on this
-> Mac by following its README exactly. Concretely: (1) `brew install hammerspoon
-> python@3.12 portaudio jq` — skip anything already installed. (2) Create the
-> Kokoro venv at `~/.local/venvs/kokoro` with python3.12 and
-> `pip install kokoro soundfile`. (3) Copy everything in `bin/` to
-> `~/.local/bin/` and `chmod +x` them; confirm `~/.local/bin` is on PATH.
-> (4) Install `hammerspoon/init.lua` to `~/.hammerspoon/init.lua` — if one
-> already exists, merge rather than overwrite, and keep every variable that the
-> file marks as intentionally global exactly as-is (a local eventtap gets
-> garbage-collected and the hotkey dies). (5) Copy
-> `macos/Hearmark.workflow` to `~/Library/Services/` and run
-> `/System/Library/CoreServices/pbs -update`. (6) Optional Claude Code
-> narration: copy `claude/commands/narrate.md` to `~/.claude/commands/` and
-> merge the Stop hook from the README's install section into
-> `~/.claude/settings.json` without clobbering existing hooks. (7) Launch
-> Hammerspoon with `open -a Hammerspoon`, then tell me to grant it
-> Accessibility permission — you cannot do that step. (8) Verify end-to-end:
-> `echo "install test one. install test two." | ~/.local/bin/hearmark`
-> must play audio (first run downloads the ~330MB Kokoro model) and show a
-> caption overlay, and a second run must also work. Check
-> `~/.cache/hearmark/last-run.log` for download progress or errors if
-> speech does not start. Then tell me the hotkeys from the README table.
+```text
+Clone https://github.com/aksman-dev/hearmark.git and install Hearmark on
+this Mac by following its README. Complete these steps:
+
+1. Install prerequisites
+   Run: brew install hammerspoon python@3.12 portaudio jq
+   Skip anything already installed.
+
+2. Set up the speech engine
+   Create ~/.local/venvs/kokoro with Python 3.12.
+   Inside that venv, run: pip install kokoro soundfile
+
+3. Install the scripts
+   Copy everything in bin/ to ~/.local/bin/ and make it executable.
+   Confirm ~/.local/bin is on PATH.
+
+4. Configure Hammerspoon
+   Install hammerspoon/init.lua to ~/.hammerspoon/init.lua.
+   Merge with any existing config rather than overwriting it.
+   Preserve every variable marked as intentionally global.
+
+5. Add the Services action
+   Copy macos/Hearmark.workflow to ~/Library/Services/.
+   Run: /System/Library/CoreServices/pbs -update
+
+6. Optional: enable Claude Code narration
+   Copy claude/commands/narrate.md to ~/.claude/commands/.
+   Merge the Stop hook from the README into ~/.claude/settings.json.
+   Preserve existing hooks.
+
+7. Launch Hammerspoon
+   Run: open -a Hammerspoon
+   Tell me to grant Accessibility permission; I must do that step.
+
+8. Verify audio and captions
+   Run this command twice; both runs must play audio and show captions:
+   echo "Install test one. Install test two." | ~/.local/bin/hearmark
+
+   The first run downloads the ~330MB Kokoro model. If speech does not
+   start, check ~/.cache/hearmark/last-run.log for progress or errors.
+   Finish by telling me the hotkeys from the README table.
+```
 
 Select text anywhere on macOS, tap **Ctrl+Option**, and hear it read aloud by a
 local neural voice (Kokoro-82M) — with a live caption overlay, pause/skip
