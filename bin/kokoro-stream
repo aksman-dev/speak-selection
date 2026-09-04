@@ -1,4 +1,4 @@
-#!/Users/amaniyar/.local/venvs/kokoro/bin/python
+#!/usr/bin/env python3
 """Read text on stdin, synthesize with Kokoro (local), emit wav paths on stdout.
 
 Streams one wav per sentence segment so playback can start before the whole
@@ -8,10 +8,39 @@ import os
 import sys
 import uuid
 
-import soundfile as sf
-from kokoro import KPipeline
+
+def _ensure_kokoro_python() -> None:
+    """Use the current user's Kokoro venv before importing its dependencies."""
+    venv = os.path.join(os.path.expanduser("~"), ".local", "venvs", "kokoro")
+    python = os.path.join(venv, "bin", "python")
+    if not os.path.isfile(python) or not os.access(python, os.X_OK):
+        sys.exit(
+            f"kokoro-stream: Kokoro Python is missing or not executable: {python}\n"
+            f"Create the virtual environment at {venv} and install kokoro and "
+            "soundfile as described in the README."
+        )
+    # Compare venv directories, including aliases such as macOS /var versus
+    # /private/var. Resolving the interpreter itself would confuse a venv's
+    # symlinked Python with the system interpreter it points to.
+    if os.path.realpath(sys.prefix) == os.path.realpath(venv):
+        return
+    if os.path.realpath(os.path.dirname(sys.executable)) == os.path.realpath(
+        os.path.dirname(python)
+    ):
+        sys.exit(
+            f"kokoro-stream: {venv} is not a working virtual environment. "
+            "Recreate it and install kokoro and soundfile as described in the README."
+        )
+    try:
+        os.execv(python, [python, os.path.abspath(__file__), *sys.argv[1:]])
+    except OSError as exc:
+        sys.exit(f"kokoro-stream: could not start Kokoro Python at {python}: {exc}")
+
 
 def main() -> None:
+    import soundfile as sf
+    from kokoro import KPipeline
+
     text = sys.stdin.read().strip()
     if not text:
         return
@@ -34,4 +63,5 @@ def main() -> None:
         print(f"{base}.wav\t{base}.txt", flush=True)
 
 if __name__ == "__main__":
+    _ensure_kokoro_python()
     main()
