@@ -12,7 +12,7 @@
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>
-				<string>Speak Selection</string>
+				<string>Hearmark</string>
 			</dict>
 			<key>NSMessage</key>
 			<string>runWorkflowAsService</string>

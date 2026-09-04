@@ -59,7 +59,7 @@
 				<key>ActionParameters</key>
 				<dict>
 					<key>COMMAND_STRING</key>
-					<string>T=$(mktemp); cat &gt; "$T"; ( "$HOME/.local/bin/speak-selection" &lt; "$T"; rm -f "$T" ) &gt;/dev/null 2&gt;&amp;1 &amp;!</string>
+					<string>T=$(mktemp); cat &gt; "$T"; ( "$HOME/.local/bin/hearmark" &lt; "$T"; rm -f "$T" ) &gt;/dev/null 2&gt;&amp;1 &amp;!</string>
 					<key>CheckedForUserDefaultShell</key>
 					<true/>
 					<key>inputMethod</key>

@@ -1,8 +1,8 @@
 #!/bin/zsh
 # Speak text from stdin with Kokoro, a local neural TTS — fully offline.
-# Used by the Ctrl+Option hotkey and the "Speak Selection" macOS Quick
+# Used by the Ctrl+Option hotkey and the "Hearmark" macOS Quick
 # Action; also works as a pipe:
-#   echo "hello" | speak-selection
+#   echo "hello" | hearmark
 # Invoking while speech is playing stops the current speech first.
 set -u
 # MULTIOS would combine the coprocess's input pipe with our here-string and
@@ -14,7 +14,7 @@ TEXT=$(cat)
 
 # Fixed path (not TMPDIR): Hammerspoon must resolve the same directory to
 # send pause/rewind commands here.
-CACHE_DIR="$HOME/.cache/speak-selection"
+CACHE_DIR="$HOME/.cache/hearmark"
 mkdir -p "$CACHE_DIR" || exit 1
 PIDFILE="$CACHE_DIR/speaker.pid"
 LOG_FILE="$CACHE_DIR/last-run.log"
@@ -30,9 +30,9 @@ fi
 pkill -f "afplay $CACHE_DIR" 2>/dev/null
 echo $$ > "$PIDFILE" || exit 1
 
-export KOKORO_VOICE=${KOKORO_VOICE:-$(cat "$HOME/.config/speak-selection/voice" 2>/dev/null || echo af_heart)}
-export KOKORO_SPEED=${KOKORO_SPEED:-$(cat "$HOME/.config/speak-selection/speed" 2>/dev/null || echo 1.2)}
-HS=${SPEAK_SELECTION_HS:-/opt/homebrew/bin/hs}
+export KOKORO_VOICE=${KOKORO_VOICE:-$(cat "$HOME/.config/hearmark/voice" 2>/dev/null || echo af_heart)}
+export KOKORO_SPEED=${KOKORO_SPEED:-$(cat "$HOME/.config/hearmark/speed" 2>/dev/null || echo 1.2)}
+HS=${HEARMARK_HS:-/opt/homebrew/bin/hs}
 CMD_FILE="$CACHE_DIR/cmd"
 rm -f "$CMD_FILE"
 # Hide the caption overlay and remove segment files however this script
@@ -62,8 +62,8 @@ RUN_DIR=$(mktemp -d "$CACHE_DIR/run.XXXXXXXX") || exit 1
 : > "$LOG_FILE" || exit 1
 
 fail() {
-  print -r -- "speak-selection: $1" >> "$LOG_FILE"
-  print -r -- "speak-selection: $1 See $LOG_FILE" >&2
+  print -r -- "hearmark: $1" >> "$LOG_FILE"
+  print -r -- "hearmark: $1 See $LOG_FILE" >&2
   exit "${2:-1}"
 }
 

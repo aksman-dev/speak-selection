@@ -14,21 +14,21 @@ ZSH = shutil.which("zsh")
 
 
 @unittest.skipUnless(ZSH, "zsh is required")
-class SpeakSelectionTests(unittest.TestCase):
+class HearmarkTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix="speech-regression-")
         self.addCleanup(self.tmp.cleanup)
         self.home = Path(self.tmp.name) / "Home with spaces"
         self.bin = self.home / ".local/bin"
         self.bin.mkdir(parents=True)
-        self.cache = self.home / ".cache/speak-selection"
+        self.cache = self.home / ".cache/hearmark"
         self.play_log = self.home / "played.txt"
         self.marker = self.home / "played-first"
         self.env = dict(os.environ, HOME=str(self.home),
                         PATH=str(self.bin) + os.pathsep + os.environ["PATH"],
                         TEST_PLAY_LOG=str(self.play_log),
                         TEST_PLAY_MARKER=str(self.marker),
-                        SPEAK_SELECTION_HS=str(self.bin / "hs"))
+                        HEARMARK_HS=str(self.bin / "hs"))
         self.write_script("pkill", "exit 0\n")
         self.write_script("hs", "exit 0\n")
         self.write_script("afplay", 'print -r -- "$1" >> "$TEST_PLAY_LOG"\n'
@@ -46,7 +46,7 @@ class SpeakSelectionTests(unittest.TestCase):
                 f'printf "%s\\t%s\\n" "$1/{name}.wav" "$1/{name}.txt"\n')
 
     def run_speech(self, text="Hello world."):
-        return subprocess.run([ZSH, str(ROOT / "bin/speak-selection")],
+        return subprocess.run([ZSH, str(ROOT / "bin/hearmark")],
                               input=text, text=True, capture_output=True,
                               env=self.env, timeout=10)
 
@@ -156,7 +156,7 @@ class SpeakSelectionTests(unittest.TestCase):
                                   'print -r -- "$1 start" >> "$TEST_PLAY_LOG"\n'
                                   'while [[ ! -e "$HOME/release" ]]; do sleep 0.02; done\n'
                                   'print -r -- "$1 end" >> "$TEST_PLAY_LOG"\n')
-                proc = subprocess.Popen([ZSH, str(ROOT / "bin/speak-selection")],
+                proc = subprocess.Popen([ZSH, str(ROOT / "bin/hearmark")],
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE, text=True, env=self.env,
                                         start_new_session=True)
@@ -204,8 +204,8 @@ class SpeakSelectionTests(unittest.TestCase):
         self.write_script("afplay", 'print -r -- "$1" >> "$TEST_PLAY_LOG"\n'
                           'count=$(wc -l < "$TEST_PLAY_LOG")\n'
                           'case "$((count))" in\n'
-                          '  1) print fwd > "$HOME/.cache/speak-selection/cmd"; kill -TERM $$ ;;\n'
-                          '  2) print back > "$HOME/.cache/speak-selection/cmd"; kill -TERM $$ ;;\n'
+                          '  1) print fwd > "$HOME/.cache/hearmark/cmd"; kill -TERM $$ ;;\n'
+                          '  2) print back > "$HOME/.cache/hearmark/cmd"; kill -TERM $$ ;;\n'
                           'esac\n')
         result = self.run_speech()
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -219,7 +219,7 @@ class SpeakSelectionTests(unittest.TestCase):
         self.write_script("kokoro-stream", 'print $$ > "$HOME/producer.pid"\n' +
                           self.segment() + "exec sleep 10\n")
         self.write_script("afplay", 'print $$ > "$HOME/player.pid"\nexec sleep 10\n')
-        proc = subprocess.Popen([ZSH, str(ROOT / "bin/speak-selection")],
+        proc = subprocess.Popen([ZSH, str(ROOT / "bin/hearmark")],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, text=True, env=self.env,
                                 start_new_session=True)
