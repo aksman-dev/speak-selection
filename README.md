@@ -1,10 +1,12 @@
-# speak-selection
+# Hearmark
+
+**Highlight. Tap. Listen.**
 
 ## Agent quick install
 
 Paste this into your coding agent (Claude Code, Cursor, etc.) to set everything up:
 
-> Clone `https://github.com/aksman-dev/speak-selection.git` and install it on this
+> Clone `https://github.com/aksman-dev/hearmark.git` and install it on this
 > Mac by following its README exactly. Concretely: (1) `brew install hammerspoon
 > python@3.12 portaudio jq` — skip anything already installed. (2) Create the
 > Kokoro venv at `~/.local/venvs/kokoro` with python3.12 and
@@ -14,17 +16,17 @@ Paste this into your coding agent (Claude Code, Cursor, etc.) to set everything 
 > already exists, merge rather than overwrite, and keep every variable that the
 > file marks as intentionally global exactly as-is (a local eventtap gets
 > garbage-collected and the hotkey dies). (5) Copy
-> `macos/Speak Selection.workflow` to `~/Library/Services/` and run
+> `macos/Hearmark.workflow` to `~/Library/Services/` and run
 > `/System/Library/CoreServices/pbs -update`. (6) Optional Claude Code
 > narration: copy `claude/commands/narrate.md` to `~/.claude/commands/` and
 > merge the Stop hook from the README's install section into
 > `~/.claude/settings.json` without clobbering existing hooks. (7) Launch
 > Hammerspoon with `open -a Hammerspoon`, then tell me to grant it
 > Accessibility permission — you cannot do that step. (8) Verify end-to-end:
-> `echo "install test one. install test two." | ~/.local/bin/speak-selection`
+> `echo "install test one. install test two." | ~/.local/bin/hearmark`
 > must play audio (first run downloads the ~330MB Kokoro model) and show a
 > caption overlay, and a second run must also work. Check
-> `~/.cache/speak-selection/last-run.log` for download progress or errors if
+> `~/.cache/hearmark/last-run.log` for download progress or errors if
 > speech does not start. Then tell me the hotkeys from the README table.
 
 Select text anywhere on macOS, tap **Ctrl+Option**, and hear it read aloud by a
@@ -49,14 +51,14 @@ changes are saved for the next utterance; selecting a voice also plays a preview
 
 ## Components
 
-- `bin/speak-selection` — core pipeline: reads text on stdin, synthesizes with
+- `bin/hearmark` — core pipeline: reads text on stdin, synthesizes with
   Kokoro sentence-by-sentence, plays via `afplay`, drives the caption overlay,
   and supports pause/skip via a command file.
 - `bin/kokoro-stream` — Python: text in, one wav + txt per sentence out
   (streamed, so playback starts before synthesis finishes).
-- `bin/speak-speed` — set/show speaking speed from the terminal.
+- `bin/hearmark-speed` — set/show speaking speed from the terminal.
 - `hammerspoon/init.lua` — hotkeys, caption overlay, transport controls.
-- `macos/Speak Selection.workflow` — right-click → Services → Speak Selection
+- `macos/Hearmark.workflow` — right-click → Services → Hearmark
   fallback for apps that support macOS Services.
 - Claude Code narration (optional):
   - `bin/claude-speak-hook` — Stop hook: speaks each finished response when
@@ -71,8 +73,8 @@ Clone over HTTPS (no GitHub SSH key required), then run the steps below from
 the checkout:
 
 ```sh
-git clone https://github.com/aksman-dev/speak-selection.git
-cd speak-selection
+git clone https://github.com/aksman-dev/hearmark.git
+cd hearmark
 ```
 
 1. Prereqs: Homebrew, `brew install hammerspoon python@3.12 portaudio jq`.
@@ -95,7 +97,7 @@ cd speak-selection
    Accessibility permission. `hs.ipc` must be installed
    (`hs.ipc.cliInstall("/opt/homebrew")` is in the config) — the scripts talk
    to Hammerspoon through `/opt/homebrew/bin/hs`.
-5. Services menu (optional): copy `macos/Speak Selection.workflow` to
+5. Services menu (optional): copy `macos/Hearmark.workflow` to
    `~/Library/Services/`.
 6. Claude Code narration (optional): copy `claude/commands/narrate.md` to
    `~/.claude/commands/`, and add a Stop hook to `~/.claude/settings.json`:
@@ -104,12 +106,17 @@ cd speak-selection
    ```
 7. Verify speech and captions, then repeat the same command to check a second run:
    ```sh
-   echo "Install test one. Install test two." | ~/.local/bin/speak-selection
+   echo "Install test one. Install test two." | ~/.local/bin/hearmark
    ```
+
+When upgrading an existing installation, reinstall the scripts and Hammerspoon
+configuration together, and replace the older Services action with
+`Hearmark.workflow`. Copy any saved `voice`, `speed`, and `narrate-sessions`
+settings into `~/.config/hearmark/` to retain your preferences.
 
 ## Configuration
 
-Plain files under `~/.config/speak-selection/`, re-read on every run:
+Plain files under `~/.config/hearmark/`, re-read on every run:
 
 | File | Meaning | Default |
 |---|---|---|
@@ -124,11 +131,11 @@ a fresh install.
 If speech does not start, inspect the latest run's diagnostics:
 
 ```sh
-tail -n 50 ~/.cache/speak-selection/last-run.log
+tail -n 50 ~/.cache/hearmark/last-run.log
 ```
 
 The first run can take time while Kokoro downloads its model. In another
-terminal, use `tail -f ~/.cache/speak-selection/last-run.log` to follow download
+terminal, use `tail -f ~/.cache/hearmark/last-run.log` to follow download
 progress and errors. Each new speech run replaces this log. A synthesis failure
 or a run with no usable audio exits with a nonzero status.
 
@@ -154,6 +161,6 @@ can be checked with the install verification above.
   needs `</dev/null` or it eats the loop's remaining input.
 - Kokoro splits on newlines by default; the sentence-level captions rely on
   `split_pattern=r"(?<=[.!?])\s+|\n+"`.
-- Pause is `SIGSTOP`/`SIGCONT` on everything matching `speak-selection`;
+- Pause is `SIGSTOP`/`SIGCONT` on everything matching `hearmark`;
   a stopped process ignores `SIGTERM` until continued, so stop paths send
   `-CONT` first.

@@ -2,7 +2,7 @@
 """Read text on stdin, synthesize with Kokoro (local), emit wav paths on stdout.
 
 Streams one wav per sentence segment so playback can start before the whole
-text is synthesized. Used by speak-selection when the engine is 'kokoro'.
+text is synthesized. Used by hearmark when the engine is 'kokoro'.
 """
 import os
 import sys

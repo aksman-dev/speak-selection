@@ -2,11 +2,11 @@
 # Claude Code Stop hook: when narration is enabled for THIS session
 # (via narrate-session / the /narrate command), speak the entire last
 # assistant message — code included, no length cap — through the
-# speak-selection pipeline. Exits immediately; speech runs detached.
+# hearmark pipeline. Exits immediately; speech runs detached.
 set -u
 
 key=$("$HOME/.local/bin/claude-session-key" 2>/dev/null) || exit 0
-[[ -f "$HOME/.config/speak-selection/narrate-sessions/$key" ]] || exit 0
+[[ -f "$HOME/.config/hearmark/narrate-sessions/$key" ]] || exit 0
 
 transcript=$(/usr/bin/jq -r '.transcript_path // empty')
 [[ -n "$transcript" && -f "$transcript" ]] || exit 0
@@ -23,6 +23,6 @@ transcript=$(/usr/bin/jq -r '.transcript_path // empty')
       | select(length > 0)
     ] | last // empty' "$transcript" 2>/dev/null)
   [[ -n "$text" ]] || exit 0
-  print -r -- "$text" | "$HOME/.local/bin/speak-selection"
+  print -r -- "$text" | "$HOME/.local/bin/hearmark"
 ) >/dev/null 2>&1 &!
 exit 0

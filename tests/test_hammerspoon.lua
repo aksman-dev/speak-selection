@@ -10,7 +10,7 @@ local function boot(options)
   options = options or {}
   local home = "/Users/Test O'Brien"
   local configRoot = home .. "/.config"
-  local configDir = configRoot .. "/speak-selection"
+  local configDir = configRoot .. "/hearmark"
   local state = { bindings = {}, alerts = {}, commands = {}, previews = 0, files = {}, dirs = { [home] = true } }
   state.configDir = configDir
   if options.existing then

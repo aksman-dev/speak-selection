@@ -1,4 +1,4 @@
--- Speak Selection: tap Ctrl+Option (no other key) to speak the selected text
+-- Hearmark: tap Ctrl+Option (no other key) to speak the selected text
 -- with Kokoro, a local neural text-to-speech model. Fully offline.
 -- Tap again while speaking to stop.
 
@@ -9,13 +9,13 @@ hs.menuIcon(true)
 require("hs.ipc")
 hs.ipc.cliInstall("/opt/homebrew")
 
-local speakScript = os.getenv("HOME") .. "/.local/bin/speak-selection"
+local hearmarkScript = os.getenv("HOME") .. "/.local/bin/hearmark"
 local configRoot = os.getenv("HOME") .. "/.config"
-local configDir = configRoot .. "/speak-selection"
+local configDir = configRoot .. "/hearmark"
 
 local function writeSetting(name, value)
   local function failed(err)
-    print("[speak] Could not save " .. name .. ": " .. tostring(err))
+    print("[hearmark] Could not save " .. name .. ": " .. tostring(err))
     hs.alert.show("Could not save speech " .. name, 1.5)
     return false
   end
@@ -39,7 +39,7 @@ local function writeSetting(name, value)
 end
 
 -- Speech speed: Ctrl+Option+minus slower, Ctrl+Option+equals faster.
--- Writes ~/.config/speak-selection/speed; applies from the next utterance.
+-- Writes ~/.config/hearmark/speed; applies from the next utterance.
 local speedFile = configDir .. "/speed"
 
 local function bumpSpeed(delta)
@@ -57,7 +57,7 @@ hs.hotkey.bind({ "ctrl", "alt" }, "-", function() bumpSpeed(-0.05) end)
 hs.hotkey.bind({ "ctrl", "alt" }, "=", function() bumpSpeed(0.05) end)
 
 -- Caption overlay: shows the sentence currently being spoken, bottom-center.
--- Driven by speak-selection via the hs CLI: captionShow('<textfile>') per
+-- Driven by hearmark via the hs CLI: captionShow('<textfile>') per
 -- sentence, captionHide() when speech ends or is stopped.
 local CAPTION_W = 720
 captionCanvas = nil
@@ -113,15 +113,15 @@ function captionHide()
 end
 
 local function isSpeaking()
-  local out = hs.execute("pgrep -f 'speak-selection' 2>/dev/null")
+  local out = hs.execute("pgrep -f 'hearmark' 2>/dev/null")
   return out ~= nil and out ~= ""
 end
 
 local function stopSpeaking()
-  -- afplay's argument contains "speak-selection-<uid>", so one pattern kills
+  -- afplay's file path contains "hearmark", so one pattern kills
   -- both the script and its player.
   -- CONT first: a paused (SIGSTOPped) process won't act on TERM until resumed.
-  hs.execute("pkill -CONT -f 'speak-selection' 2>/dev/null; pkill -f 'speak-selection' 2>/dev/null")
+  hs.execute("pkill -CONT -f 'hearmark' 2>/dev/null; pkill -f 'hearmark' 2>/dev/null")
   captionHide()
 end
 
@@ -131,31 +131,31 @@ end
 --   Ctrl+Option+Right  next sentence
 --   Ctrl+Option+1/2/3  switch voice (Onyx / Michael / Fenrir)
 --   Ctrl+Option+4/5/6  switch voice (Heart, default / Bella / Nicole)
-local cacheDir = os.getenv("HOME") .. "/.cache/speak-selection"
+local cacheDir = os.getenv("HOME") .. "/.cache/hearmark"
 
 function speechPauseToggle()
   -- Derive paused/playing from real process state (T = SIGSTOPped) rather
   -- than a flag, so the toggle can never drift out of sync.
-  local procs = hs.execute("pgrep -f 'speak-selection' 2>/dev/null")
+  local procs = hs.execute("pgrep -f 'hearmark' 2>/dev/null")
   if procs == nil or procs == "" then
     hs.alert.show("Nothing speaking", 0.6)
     return
   end
   local stopped = hs.execute(
-    "pgrep -f 'speak-selection' | xargs ps -o state= -p 2>/dev/null | grep -c '^T'")
+    "pgrep -f 'hearmark' | xargs ps -o state= -p 2>/dev/null | grep -c '^T'")
   if tonumber(stopped) ~= nil and tonumber(stopped) > 0 then
-    hs.execute("pkill -CONT -f 'speak-selection' 2>/dev/null")
+    hs.execute("pkill -CONT -f 'hearmark' 2>/dev/null")
     hs.alert.show("Resumed", 0.6)
   else
-    hs.execute("pkill -STOP -f 'speak-selection' 2>/dev/null")
+    hs.execute("pkill -STOP -f 'hearmark' 2>/dev/null")
     hs.alert.show("Paused", 0.6)
   end
 end
 
 local function speechNav(dir)
-  hs.execute("pkill -CONT -f 'speak-selection' 2>/dev/null")
+  hs.execute("pkill -CONT -f 'hearmark' 2>/dev/null")
   hs.execute("mkdir -p '" .. cacheDir .. "'; echo " .. dir .. " > '" .. cacheDir
-    .. "/cmd'; pkill -f 'afplay .*speak-selection' 2>/dev/null")
+    .. "/cmd'; pkill -f 'afplay .*hearmark' 2>/dev/null")
 end
 
 hs.hotkey.bind({ "ctrl", "alt" }, "space", speechPauseToggle)
@@ -174,7 +174,7 @@ for _, v in ipairs(VOICES) do
   hs.hotkey.bind({ "ctrl", "alt" }, v.key, function()
     if not writeSetting("voice", v.id) then return end
     hs.alert.show("Voice: " .. v.name, 0.8)
-    hs.task.new("/bin/zsh", nil, { "-c", "echo 'This is " .. v.name .. ".' | '" .. speakScript .. "'" }):start()
+    hs.task.new("/bin/zsh", nil, { "-c", "echo 'This is " .. v.name .. ".' | '" .. hearmarkScript .. "'" }):start()
   end)
 end
 
@@ -185,24 +185,24 @@ local function speakText(text)
   fh:write(text)
   fh:close()
   hs.task.new("/bin/zsh", function() os.remove(tmp) end,
-    { "-c", "'" .. speakScript .. "' < " .. tmp }):start()
+    { "-c", "'" .. hearmarkScript .. "' < " .. tmp }):start()
 end
 
 local copyPoll = nil
 
-local function speakSelection()
+local function readSelection()
   if isSpeaking() then
     stopSpeaking()
     return
   end
   if copyPoll ~= nil then copyPoll:stop(); copyPoll = nil end
   local app = hs.application.frontmostApplication()
-  print(string.format("[speak] tap detected, frontmost=%s", app and app:name() or "?"))
+  print(string.format("[hearmark] tap detected, frontmost=%s", app and app:name() or "?"))
   -- cmux (Ghostty) copies on select, and ignores synthetic Cmd+C anyway:
   -- the clipboard already holds the selection, so speak it directly.
   if app ~= nil and app:bundleID() == "com.cmuxterm.app" then
     local text = hs.pasteboard.getContents()
-    print(string.format("[speak] cmux path, clipboard chars=%d", text and #text or 0))
+    print(string.format("[hearmark] cmux path, clipboard chars=%d", text and #text or 0))
     if text ~= nil and text ~= "" then
       speakText(text)
     else
@@ -218,11 +218,11 @@ local function speakSelection()
     if hs.pasteboard.changeCount() ~= before then
       copyPoll:stop(); copyPoll = nil
       local text = hs.pasteboard.getContents()
-      print(string.format("[speak] copy OK, %d chars", text and #text or 0))
+      print(string.format("[hearmark] copy OK, %d chars", text and #text or 0))
       if text ~= nil and text ~= "" then speakText(text) end
     elseif waited >= 0.8 then
       copyPoll:stop(); copyPoll = nil
-      print(string.format("[speak] no clipboard change (count still %d)", before))
+      print(string.format("[hearmark] no clipboard change (count still %d)", before))
       hs.alert.show("No selection", 0.7)
     end
   end)
@@ -254,7 +254,7 @@ tapWatcher = hs.eventtap.new(
         -- Run outside the event callback: shelling out (pgrep etc.) in here
         -- can stall the tap long enough that macOS disables it silently —
         -- the "hotkey dies after one run" failure.
-        hs.timer.doAfter(0, speakSelection)
+        hs.timer.doAfter(0, readSelection)
       end
     elseif flags.cmd or flags.shift then
       armed = false
@@ -263,4 +263,4 @@ tapWatcher = hs.eventtap.new(
   end)
 tapWatcher:start()
 
-hs.alert.show("Speak Selection loaded: tap Ctrl+Option", 1.5)
+hs.alert.show("Hearmark loaded: tap Ctrl+Option", 1.5)
