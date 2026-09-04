@@ -10,10 +10,37 @@ require("hs.ipc")
 hs.ipc.cliInstall("/opt/homebrew")
 
 local speakScript = os.getenv("HOME") .. "/.local/bin/speak-selection"
+local configRoot = os.getenv("HOME") .. "/.config"
+local configDir = configRoot .. "/speak-selection"
+
+local function writeSetting(name, value)
+  local function failed(err)
+    print("[speak] Could not save " .. name .. ": " .. tostring(err))
+    hs.alert.show("Could not save speech " .. name, 1.5)
+    return false
+  end
+  -- Fresh installs may have neither directory. Use filesystem APIs so HOME
+  -- paths containing spaces or quotes need no shell escaping.
+  for _, dir in ipairs({ configRoot, configDir }) do
+    if hs.fs.attributes(dir, "mode") ~= "directory" then
+      local ok, err = hs.fs.mkdir(dir)
+      if not ok and hs.fs.attributes(dir, "mode") ~= "directory" then
+        return failed(err)
+      end
+    end
+  end
+  local f, err = io.open(configDir .. "/" .. name, "w")
+  if not f then return failed(err) end
+  local written, writeErr = f:write(value)
+  local closed, closeErr = f:close()
+  if not written then return failed(writeErr) end
+  if not closed then return failed(closeErr) end
+  return true
+end
 
 -- Speech speed: Ctrl+Option+minus slower, Ctrl+Option+equals faster.
 -- Writes ~/.config/speak-selection/speed; applies from the next utterance.
-local speedFile = os.getenv("HOME") .. "/.config/speak-selection/speed"
+local speedFile = configDir .. "/speed"
 
 local function bumpSpeed(delta)
   local f = io.open(speedFile, "r")
@@ -21,9 +48,9 @@ local function bumpSpeed(delta)
   if f then f:close() end
   v = math.max(0.5, math.min(2.5, v + delta))
   v = math.floor(v * 100 + 0.5) / 100
-  f = io.open(speedFile, "w")
-  if f then f:write(tostring(v)); f:close() end
-  hs.alert.show(string.format("Speech speed: %.2f", v), 0.8)
+  if writeSetting("speed", tostring(v)) then
+    hs.alert.show(string.format("Speech speed: %.2f", v), 0.8)
+  end
 end
 
 hs.hotkey.bind({ "ctrl", "alt" }, "-", function() bumpSpeed(-0.05) end)
@@ -103,13 +130,17 @@ end
 --   Ctrl+Option+Left   previous sentence
 --   Ctrl+Option+Right  next sentence
 --   Ctrl+Option+1/2/3  switch voice (Onyx / Michael / Fenrir)
+--   Ctrl+Option+4/5/6  switch voice (Heart, default / Bella / Nicole)
 local cacheDir = os.getenv("HOME") .. "/.cache/speak-selection"
 
 function speechPauseToggle()
   -- Derive paused/playing from real process state (T = SIGSTOPped) rather
   -- than a flag, so the toggle can never drift out of sync.
   local procs = hs.execute("pgrep -f 'speak-selection' 2>/dev/null")
-  if procs == nil or procs == "" then return end
+  if procs == nil or procs == "" then
+    hs.alert.show("Nothing speaking", 0.6)
+    return
+  end
   local stopped = hs.execute(
     "pgrep -f 'speak-selection' | xargs ps -o state= -p 2>/dev/null | grep -c '^T'")
   if tonumber(stopped) ~= nil and tonumber(stopped) > 0 then
@@ -135,10 +166,13 @@ local VOICES = {
   { key = "1", id = "am_onyx", name = "Onyx" },
   { key = "2", id = "am_michael", name = "Michael" },
   { key = "3", id = "am_fenrir", name = "Fenrir" },
+  { key = "4", id = "af_heart", name = "Heart" }, -- default voice
+  { key = "5", id = "af_bella", name = "Bella" },
+  { key = "6", id = "af_nicole", name = "Nicole" },
 }
 for _, v in ipairs(VOICES) do
   hs.hotkey.bind({ "ctrl", "alt" }, v.key, function()
-    hs.execute("echo " .. v.id .. " > '" .. os.getenv("HOME") .. "/.config/speak-selection/voice'")
+    if not writeSetting("voice", v.id) then return end
     hs.alert.show("Voice: " .. v.name, 0.8)
     hs.task.new("/bin/zsh", nil, { "-c", "echo 'This is " .. v.name .. ".' | '" .. speakScript .. "'" }):start()
   end)

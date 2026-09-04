@@ -4,7 +4,7 @@
 
 Paste this into your coding agent (Claude Code, Cursor, etc.) to set everything up:
 
-> Clone `git@github.com:aksman-dev/speak-selection.git` and install it on this
+> Clone `https://github.com/aksman-dev/speak-selection.git` and install it on this
 > Mac by following its README exactly. Concretely: (1) `brew install hammerspoon
 > python@3.12 portaudio jq` — skip anything already installed. (2) Create the
 > Kokoro venv at `~/.local/venvs/kokoro` with python3.12 and
@@ -23,8 +23,9 @@ Paste this into your coding agent (Claude Code, Cursor, etc.) to set everything 
 > Accessibility permission — you cannot do that step. (8) Verify end-to-end:
 > `echo "install test one. install test two." | ~/.local/bin/speak-selection`
 > must play audio (first run downloads the ~330MB Kokoro model) and show a
-> caption overlay, and a second run must also work. Then tell me the hotkeys
-> from the README table.
+> caption overlay, and a second run must also work. Check
+> `~/.cache/speak-selection/last-run.log` for download progress or errors if
+> speech does not start. Then tell me the hotkeys from the README table.
 
 Select text anywhere on macOS, tap **Ctrl+Option**, and hear it read aloud by a
 local neural voice (Kokoro-82M) — with a live caption overlay, pause/skip
@@ -39,10 +40,12 @@ responses. Everything runs on-device; no text ever leaves the machine.
 | Ctrl+Option+Space | pause / resume |
 | Ctrl+Option+Left / Right | previous / next sentence |
 | Ctrl+Option+1 / 2 / 3 | voice: Onyx / Michael / Fenrir |
+| Ctrl+Option+4 / 5 / 6 | voice: Heart (default) / Bella / Nicole |
 | Ctrl+Option+`-` / `=` | slower / faster |
 
 A dark caption bar at the bottom of the screen shows the sentence currently
-being spoken.
+being spoken. Pausing while idle shows “Nothing speaking”. Voice and speed
+changes are saved for the next utterance; selecting a voice also plays a preview.
 
 ## Components
 
@@ -64,14 +67,29 @@ being spoken.
 
 ## Install
 
+Clone over HTTPS (no GitHub SSH key required), then run the steps below from
+the checkout:
+
+```sh
+git clone https://github.com/aksman-dev/speak-selection.git
+cd speak-selection
+```
+
 1. Prereqs: Homebrew, `brew install hammerspoon python@3.12 portaudio jq`.
 2. Kokoro venv:
    ```sh
-   /opt/homebrew/opt/python@3.12/bin/python3.12 -m venv ~/.local/venvs/kokoro
+   "$(brew --prefix python@3.12)/bin/python3.12" -m venv ~/.local/venvs/kokoro
    ~/.local/venvs/kokoro/bin/pip install kokoro soundfile
    ```
    (First speech run downloads the ~330MB model from Hugging Face.)
-3. Scripts: copy or symlink `bin/*` into `~/.local/bin` (must be on PATH).
+3. Scripts:
+   ```sh
+   mkdir -p ~/.local/bin
+   install -m 755 bin/* ~/.local/bin/
+   ```
+   Ensure `~/.local/bin` and a `python3` command are on PATH. `kokoro-stream`
+   automatically uses the current user's `~/.local/venvs/kokoro/bin/python`;
+   no shebang edits are needed.
 4. Hammerspoon: copy `hammerspoon/init.lua` to `~/.hammerspoon/init.lua`
    (or merge if you already have config), launch Hammerspoon, grant
    Accessibility permission. `hs.ipc` must be installed
@@ -84,6 +102,10 @@ being spoken.
    ```json
    "Stop": [{ "hooks": [{ "type": "command", "command": "~/.local/bin/claude-speak-hook", "timeout": 10 }] }]
    ```
+7. Verify speech and captions, then repeat the same command to check a second run:
+   ```sh
+   echo "Install test one. Install test two." | ~/.local/bin/speak-selection
+   ```
 
 ## Configuration
 
@@ -93,6 +115,36 @@ Plain files under `~/.config/speak-selection/`, re-read on every run:
 |---|---|---|
 | `voice` | Kokoro voice id (`am_onyx`, `am_michael`, …) | `af_heart` |
 | `speed` | 0.5–2.5, 1.0 = natural | 1.2 |
+
+The voice and speed hotkeys create this directory when needed, including on
+a fresh install.
+
+## Troubleshooting
+
+If speech does not start, inspect the latest run's diagnostics:
+
+```sh
+tail -n 50 ~/.cache/speak-selection/last-run.log
+```
+
+The first run can take time while Kokoro downloads its model. In another
+terminal, use `tail -f ~/.cache/speak-selection/last-run.log` to follow download
+progress and errors. Each new speech run replaces this log. A synthesis failure
+or a run with no usable audio exits with a nonzero status.
+
+## Tests
+
+Run the regression checks from the checkout:
+
+```sh
+python3 -m unittest discover -s tests -v
+```
+
+These checks use temporary homes and stub synthesis/playback, so they need no
+model download or audio device. The shell tests require zsh. The hotkey tests
+use Lua 5.2+ or the Lua runtime bundled with Hammerspoon on macOS, and are
+reported as skipped if neither is installed. Live hotkeys, audio, and captions
+can be checked with the install verification above.
 
 ## Notes and gotchas (hard-won)
 
